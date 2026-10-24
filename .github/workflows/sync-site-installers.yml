@@ -1,0 +1,60 @@
+name: Sync verified installers into Cloudflare Pages site
+# Maintains first-party download URLs for regions with unreliable GitHub connectivity.
+# Purely public binaries. No private code, account data, credentials or signing keys.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sync-site-installers.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: naiwa-cloudflare-site-installers
+  cancel-in-progress: false
+jobs:
+  copy-verified-release:
+    if: github.repository == 'justinleo624/naiwa-v62-updates' && github.ref == 'refs/heads/main' && github.actor == 'justinleo624'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Download exact public Beta.4 installers with checksum pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p site/downloads
+          base='https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.4'
+          curl --fail --location --silent --show-error --retry 3 --max-time 90 "$base/naiwa-windows-x86_64.exe" -o site/downloads/naiwa-windows-x86_64.exe
+          curl --fail --location --silent --show-error --retry 3 --max-time 90 "$base/naiwa-darwin-aarch64.dmg" -o site/downloads/naiwa-darwin-aarch64.dmg
+          (
+            cd site/downloads
+            sha256sum -c <<'CHECKSUMS'
+          b03a675183e5fe5082cb2b5919d9dfdd07138671c4b73341cca4c9dbeb431776  naiwa-windows-x86_64.exe
+          bca734dd39c7ef94b97c96f896e4b43c7b6b0987eac4cb5c29267cb1f188541e  naiwa-darwin-aarch64.dmg
+          CHECKSUMS
+          )
+          file site/downloads/*
+          test "$(wc -c < site/downloads/naiwa-windows-x86_64.exe)" = 4758108
+          test "$(wc -c < site/downloads/naiwa-darwin-aarch64.dmg)" = 7152123
+          echo 'PASS: Both official Beta.4 installers match signed-release report bytes'
+      - name: Add immutable verification metadata and commit static binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat >site/downloads/SHA256SUMS.txt <<'CHECKSUMS'
+          b03a675183e5fe5082cb2b5919d9dfdd07138671c4b73341cca4c9dbeb431776  naiwa-windows-x86_64.exe
+          bca734dd39c7ef94b97c96f896e4b43c7b6b0987eac4cb5c29267cb1f188541e  naiwa-darwin-aarch64.dmg
+          CHECKSUMS
+          git config user.name 'naiwa-site-release-bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add site/downloads/naiwa-windows-x86_64.exe site/downloads/naiwa-darwin-aarch64.dmg site/downloads/SHA256SUMS.txt
+          if git diff --cached --quiet; then
+            echo 'All first-party installer mirror files already match'
+          else
+            git commit -m 'site: mirror verified Beta.4 installers for Cloudflare Pages'
+            git push origin HEAD:main
+          fi
+          echo 'Cloudflare Pages can now publish both binaries from site/ without relying on GitHub at download time.'
