@@ -1,44 +1,45 @@
-# Naiwa Post Office — Signed Update Distribution
+# 奶蛙邮局 V6.2 Beta.3 — 下载与签名更新
 
-**Public distribution only. Application source code and account data are private and are not hosted here.**
+**小范围受邀内测已发布。** 这里只存放可公开下载的安装包、更新归档及其签名；私有应用源码、用户数据库和更新签名私钥不在这里。
 
-This repository will host cryptographically signed **V6.2 closed-Beta** app updates for macOS Apple Silicon and Windows x64. It is not the application backend.
+## 下载安装
 
-## Current status
+**[打开 V6.2 Beta.3 发布页面](https://github.com/justinleo624/naiwa-v62-updates/releases/tag/v0.6.2-beta.3)**
 
-**Not live. No downloadable app update or `beta/latest.json` has been published.** Please do not link or advertise an update until both signed platform artifacts, their signatures, and an end-to-end installation test are verified.
+| 设备 | 安装文件 |
+| --- | --- |
+| Windows 10/11 x64 | [naiwa-windows-x86_64.exe](https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.3/naiwa-windows-x86_64.exe) |
+| Mac Apple Silicon (M1/M2/M3/M4/更新型号) | [naiwa-darwin-aarch64.dmg](https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.3/naiwa-darwin-aarch64.dmg) |
 
-## Future file layout
+暂不提供经过正式验收的 Intel Mac 安装包。当前 Windows 安装包尚无独立 Authenticode 开发者签名，Mac 使用 ad-hoc 签名且尚未 Apple 公证；系统可能要求手动确认安装。仅从上述 GitHub 官方仓库页面下载，不要关闭系统全部安全保护。
 
-```text
-beta/
-  latest.json          # Add ONLY when a verified two-platform update is ready
-```
+## 安装后连接全新 Render 邮局
 
-Installer/updater assets will be attached to version-tagged public GitHub Releases (e.g. `v0.6.2-beta.3`). The `latest.json` will point to those immutable, signed release assets; it must never point to a draft release, a private repository, or an arbitrary URL.
+这批冻结的 Beta.3 安装包**原先以 Railway Beta 为默认地址**。由于后端已迁到 Render，而且不迁移历史账号，首次使用需要切换一次服务器：
 
-## Release safety checklist
+1. 打开“奶蛙邮局 Beta”（不要误开 V6.1 稳定版）。
+2. 登录页展开 **高级连接设置**，将服务器 URL 改为 **`https://naiwa-v62-beta3-api.onrender.com`**，点击 **测试连接并重试**。
+3. 由组织者通过私人渠道提供 **Render Beta 内测口令**，然后创建新账号并单独保存一次性恢复码。请不要将口令写在公开 GitHub 评论中。
+4. 两位朋友都使用同一个 Render URL，随后相互邀请、加好友和发送消息。旧 Railway 账号/密钥不能用于 Render。
 
-1. Generate and back up the **Tauri updater private key** on a trusted developer machine. Never upload the private key, its password, cloud credentials, or user data to this repository.
-2. Embed the corresponding **public key** in the new signed Beta bootstrap installers. This is separate from Windows Authenticode and macOS Developer ID/notarization.
-3. Build Windows x64 and macOS ARM64 updater bundles using the same app version; collect the genuine `.sig` files and verify signing against the embedded public key.
-4. Upload fully tested updater assets to one public version-tagged release. Validate their download URLs and hashes.
-5. **Publish `beta/latest.json` last**, and only after the owner approves the rollout. The manifest version must be newer than the bootstrap version, with both `windows-x86_64` and `darwin-aarch64` entries.
-6. Test updater install, interrupted downloads, rejected invalid signatures, retained local credentials and rollback plan on disposable test accounts. Monitor launch health before expanding the Beta audience.
+目前 Render 只开放封闭口令内测；邮箱、手机号、微信登录尚未开放。
 
-## Platform layout
+## 应用内自动更新
 
-| Platform key | Signed Tauri v2 updater asset | Traditional installer |
-| --- | --- | --- |
-| `windows-x86_64` | Signed NSIS installer `.exe` plus `.exe.sig` | NSIS `.exe` |
-| `darwin-aarch64` | Signed macOS `.app.tar.gz` plus `.sig` | `.dmg` |
+这批 Beta.3 是带 Tauri 签名更新能力的候选安装包：使用相同 Beta 更新公钥构建的后续安装包，可以通过应用内 **检查更新 → 下载 → 验签 → 安装** 流程升级。
 
-The release's manifest is a public **signed artifact index**. The signature is the contents of the generated `.sig` file, not the path to it.
+公开静态更新源：[`beta/latest.json`](https://raw.githubusercontent.com/justinleo624/naiwa-v62-updates/main/beta/latest.json)。
 
-## Separation of concerns
+当前清单版本是 **0.6.2-beta.3**，与首次安装版本相同，所以 Beta.3 用户现在“检查更新”应显示已是最新版。**完整跨版本实际升级仍待后续更高 Beta 版本进行真实双机验证**，不能把签名文件通过测试当成已经完成自动升级实测。
 
-- This public repository hosts only public release binaries, signatures, release notes and manifests.
-- App development and private Beta test infrastructure are managed separately.
-- **No GitHub Actions deployment or auto-publish is configured here.** No automatic release is started by ordinary commits.
+更新包由 Tauri 自身签名验证；它不同于 macOS 开发者身份签名或 Windows 安装包的操作系统信任签名。所有后续更新必须继续使用与已发布 Beta.3 相同的 Tauri 更新签名密钥。
 
-Developer-side setup and security gates are documented in the private source repository's V6.2 finalization Draft PR. Updating this README does **not** activate the updater.
+## 发布验证与安全说明
+
+2026-10-24 GitHub Actions [真实验收与发布记录](https://github.com/justinleo624/naiwa-v62-updates/actions/runs/40091395545) 成功：从草稿 Release 下载五个历史签名候选文件，逐一核对 SHA-256（全部 PASS），核对真实 `.sig` 内容，公开该不可覆盖的 Beta.3 预发布版本、检查公开下载地址，最后发布两平台更新清单。此前 Mac/Windows 本机 Codex 曾报告相同公钥验签及篡改拒绝 PASS；此处未重复对二进制进行独立公钥验签，也尚未进行 Render 真实双机 GUI 联调。
+
+该应用为邀请制小规模测试产品，不要发送敏感私信或在未取得许可的情况下大规模分发受版权保护的角色素材。旧 Railway Beta 后端与历史数据保持原样。
+
+## 更新发布维护
+
+公开仓库中的 [受控 Beta.3 发布工作流](https://github.com/justinleo624/naiwa-v62-updates/actions/workflows/publish-verified-beta3.yml) 只处理已锁定哈希的 Beta.3 文件，不会构建私有源码或自动发布任意新版本。发布 Beta.4 时需要由维护者使用同一私钥生成并验证新的安装包和签名，再更新版本化 Release 及 `beta/latest.json`，且绝不回退到旧版清单。
