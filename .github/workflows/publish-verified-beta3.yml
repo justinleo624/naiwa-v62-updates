@@ -2,6 +2,11 @@ name: Publish verified V6.2 Beta.3
 # Manual one-time publish of the five Owner-verified assets already in draft 419311785.
 # Never builds private source, never touches Render/Railway and never handles a signing key.
 on:
+  # One-time Owner-requested publication, triggered by this reviewed workflow change.
+  # The frozen release asset checks and monotonic manifest checks remain mandatory.
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-verified-beta3.yml']
   workflow_dispatch:
     inputs:
       confirmation:
@@ -15,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   publish:
-    if: github.repository == 'justinleo624/naiwa-v62-updates' && github.ref == 'refs/heads/main' && github.actor == 'justinleo624' && inputs.confirmation == 'PUBLISH_BETA3'
+    if: github.repository == 'justinleo624/naiwa-v62-updates' && github.ref == 'refs/heads/main' && github.actor == 'justinleo624' && (github.event_name == 'push' || inputs.confirmation == 'PUBLISH_BETA3')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
