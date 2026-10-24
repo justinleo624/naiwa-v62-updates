@@ -2,12 +2,14 @@
 
 **当前推荐：V6.2 Beta.4。**
 
-### 官网下载页（可预览）
+### 自有域名官方网站（已上线）
 
-- [打开奶蛙邮局下载站预览](https://hipostoffice-download-preview.onrender.com/)
-- 网站源码与静态下载镜像位于本仓库 `site/`；Windows/Mac 安装包已通过 GitHub Actions 实际 SHA-256 校验并写入 `site/downloads/`。
-- 自有域名 `https://hipostoffice.com` 的 Cloudflare Pages DNS 绑定**尚未完成**，不可声称自有域名已上线。操作指引请见 [CLOUDFLARE_PAGES_SETUP.md](CLOUDFLARE_PAGES_SETUP.md)。
-- 国内访问通过 Pages 同域名二进制下载减少对 GitHub 的依赖，但必须经国内电信/联通/移动真实测试，不保证所有线路稳定。
+- **[hipostoffice.com — 奶蛙邮局下载官网](https://hipostoffice.com/)**
+- 已绑定到 Cloudflare Worker `naiwa-v62-updates` 的 Production 自定义域名；用户在浏览器确认首页展示正常。
+- 官方公网外部验收：**[GitHub Actions 40106737016](https://github.com/justinleo624/naiwa-v62-updates/actions/runs/40106737016) — SUCCESS**。通过 HTTPS 访问真实首页，并从 `https://hipostoffice.com/downloads/` 分别完整下载 Windows 和 Mac 安装包；所有 SHA-256 与 Beta.4 发布文件匹配。
+- 下载路径直接使用自有域名的 Cloudflare 静态资源，GitHub 作为备用来源；`site/` 为网页和安装包镜像的公开源码目录。
+- **中国大陆电信、联通、移动三类线路测速尚未完成**；外部美国云端验收不能代替境内测试。测试方案见 [Cloudflare 官网验收说明](CLOUDFLARE_PAGES_SETUP.md)。
+- Tauri 应用内自动更新仍指向 GitHub Manifest/Release；该路径也需要单独做大陆线路检查。
 
 **当前推荐：V6.2 Beta.4。** Windows 和 macOS Apple Silicon 版本已公开，可以发给受邀朋友下载安装。软件默认连接 Render，无需设置服务器地址。
 
@@ -17,10 +19,10 @@
 
 | 平台 | 下载安装 |
 | --- | --- |
-| Windows 10/11 x64 | [下载 Windows 安装包 (.exe)](https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.4/naiwa-windows-x86_64.exe) |
-| Mac Apple Silicon（M 系列） | [下载 Mac 安装包 (.dmg)](https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.4/naiwa-darwin-aarch64.dmg) |
+| Windows 10/11 x64 | [官网 Windows 安装包 (.exe)](https://hipostoffice.com/downloads/naiwa-windows-x86_64.exe) |
+| Mac Apple Silicon（M 系列） | [官网 Mac 安装包 (.dmg)](https://hipostoffice.com/downloads/naiwa-darwin-aarch64.dmg) |
 
-目前不提供经过发行验收的 Intel Mac 包。仅从以上官方 GitHub Release 下载。
+目前不提供经过发行验收的 Intel Mac 包。请优先从自有域名官网或备用的官方 GitHub Release 下载。
 
 ### 朋友们如何开始使用
 
