@@ -139,9 +139,9 @@ jobs:
         run: |
           set -euo pipefail
           payload="$(base64 -w0 "$RUNNER_TEMP/latest.json")"
-          existing_sha="$(gh api "repos/$REPO/contents/beta/latest.json" --jq .sha 2>/dev/null || true)"
-          if [ -n "$existing_sha" ]; then
-            test -f "$RUNNER_TEMP/preexisting-manifest.json" || { echo 'Unrecognized existing manifest'; exit 1; }
+          if [ -f "$RUNNER_TEMP/preexisting-manifest.json" ]; then
+            existing_sha="$(gh api "repos/$REPO/contents/beta/latest.json" --jq '.sha // empty')"
+            [[ "$existing_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'Invalid pre-existing file SHA'; exit 1; }
             gh api --method PUT "repos/$REPO/contents/beta/latest.json"               -f message='release: verified Beta.3 signed update manifest'               -f content="$payload" -f sha="$existing_sha" -f branch=main >/dev/null
           else
             gh api --method PUT "repos/$REPO/contents/beta/latest.json"               -f message='release: verified Beta.3 signed update manifest'               -f content="$payload" -f branch=main >/dev/null
