@@ -1,14 +1,14 @@
-# V6.2 Beta 签名自动更新通道
+# 奶蛙邮局 V6.2 Beta 签名自动更新通道
 
-**当前已发布：`0.6.2-beta.3`。**
+**当前公开最新版：`0.6.2-beta.4`**。
 
-- 公开安装包：[V6.2 Beta.3 Release](https://github.com/justinleo624/naiwa-v62-updates/releases/tag/v0.6.2-beta.3)
-- 更新检查清单：[`beta/latest.json`](https://raw.githubusercontent.com/justinleo624/naiwa-v62-updates/main/beta/latest.json)
-- 支持清单平台：`darwin-aarch64` 和 `windows-x86_64`。
-- 二进制签名由 Owner 持有的 Tauri 更新私钥产生；本仓库仅公开签名和可验证的更新包，不含私钥。
-- 当前清单与 Beta.3 安装包同版本。只有以后发布更高版本且清单更新之后，客户端才应提示升级。
-- 同版本安装和静态 manifest 可用 **不等于** 已经过真实的两个不同版本之间自动升级；后者仍需完成测试。
-- 将来升级时应继续沿用原始公钥与对应私钥；只在对应两平台签名资产和可公开访问的下载 URL 均 verified 后更新清单。
-- 不应把 Render 的 Beta 内测访问口令、用户密钥、聊天数据或任何签名私钥放入此目录。
+- [Beta.4 Windows / macOS 正式内测下载页](https://github.com/justinleo624/naiwa-v62-updates/releases/tag/v0.6.2-beta.4)
+- [在线更新清单 `beta/latest.json`](https://raw.githubusercontent.com/justinleo624/naiwa-v62-updates/main/beta/latest.json)
+- 清单支持平台：`darwin-aarch64`、`windows-x86_64`。Intel Mac 暂不提供。
+- 用户首次安装后自动连接 `https://naiwa-v62-beta3-api.onrender.com`，不需要手动选择服务器。
+- Beta.3 历史安装包仍保留。原 Beta.3 与 Beta.4 使用相同 Tauri updater 签名密钥；已安装且启用更新渠道的 Beta.3 可以查询 Beta.4 更新。
+- 2026-10-24 [GitHub Actions 40101059953](https://github.com/justinleo624/naiwa-v62-updates/actions/runs/40101059953) SUCCESS：五个文件实际 SHA-256 均与本机独立报告一致；签名绑定 Beta.4，签名者 key ID 与 Beta.3 一致；发布版本包、检查公网下载后，最后更新签名清单。
+- 不同版本的真实客户端自动安装/重启仍待实机测试。
+- 后续 Beta.5 等版本必须保留此相同公钥和相应受保护私钥，先发布并验签对应 Mac+Windows 归档，再将 `beta/latest.json` 前移。不得回退版本或发布未签名包。
 
-Render 当前独立 Beta API：`https://naiwa-v62-beta3-api.onrender.com`。历史 Railway 账号和好友不会自动迁移。首次安装后请在客户端高级连接设置里改为 Render 地址并重新注册。
+**严格保密**：此仓库不包含任何 Tauri 私钥、Render 内测口令、数据库、个人恢复码或私有应用源码。更新签名与 macOS Developer ID 公证、Windows Authenticode 是不同的机制。
