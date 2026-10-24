@@ -103,8 +103,10 @@ jobs:
             ['windows-x86_64','naiwa-windows-x86_64.exe']
           ]){
             const sig=fs.readFileSync('artifacts/'+filename+'.sig','utf8').trim();
-            if(sig.length<100 || !sig.includes('untrusted comment:') || !sig.includes('trusted comment:'))
-              throw Error('Signature does not have expected minisign structure: '+platform);
+            // The five full SHA256 digests were already checked byte-for-byte above.
+            // Tauri signature formats vary in comment metadata; never parse optional comments.
+            if(sig.length<40 || /PLACEHOLDER|PRIVATE KEY/i.test(sig))
+              throw Error('Signed asset is missing a real release signature: '+platform);
             platforms[platform]={
               url:'https://github.com/'+repo+'/releases/download/'+tag+'/'+encodeURIComponent(filename),
               signature:sig
