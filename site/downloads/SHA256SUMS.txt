@@ -1,0 +1,2 @@
+b03a675183e5fe5082cb2b5919d9dfdd07138671c4b73341cca4c9dbeb431776  naiwa-windows-x86_64.exe
+bca734dd39c7ef94b97c96f896e4b43c7b6b0987eac4cb5c29267cb1f188541e  naiwa-darwin-aarch64.dmg
