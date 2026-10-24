@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://hipostoffice.com/sitemap.xml
