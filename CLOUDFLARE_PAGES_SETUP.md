@@ -1,30 +1,53 @@
-# hipostoffice.com — Cloudflare Pages 绑定与中国大陆访问验收
+# hipostoffice.com — 已上线 Worker 官网与中国大陆下载验收
 
-## 已完成（实际操作证据）
+更新：2026-10-24。**旧的 Cloudflare Pages 创建步骤已不再需要。** 用户现在已经把 `hipostoffice.com` 绑定到 Cloudflare Worker `naiwa-v62-updates` 的 Production 环境。
 
-- 官网页面目录：`site/`（静态 `index.html` + `style.css` + `favicon.svg` + 安全响应头）。
-- Windows / macOS 安装按钮使用 **本站同源静态文件**：
-  - `/downloads/naiwa-windows-x86_64.exe`，大小 4,758,108 字节，SHA-256 `b03a675183e5fe5082cb2b5919d9dfdd07138671c4b73341cca4c9dbeb431776`
-  - `/downloads/naiwa-darwin-aarch64.dmg`，大小 7,152,123 字节，SHA-256 `bca734dd39c7ef94b97c96f896e4b43c7b6b0987eac4cb5c29267cb1f188541e`
-- GitHub Actions 已真实从正式 Beta.4 Release 下载两个完整安装包并校验 SHA-256，再提交到公开仓库 `site/downloads`。之后 Cloudflare Pages 的下载链接无需实时跳转 GitHub。
-- Render 网页演示站：`https://hipostoffice-download-preview.onrender.com`（部署 Live）。
-- Cloudflare Registrar 域名已购买：`hipostoffice.com`。尚需 Owner 在 Cloudflare Dashboard **创建 Pages 项目并绑定自有域名**。无 Cloudflare 插件的 Chat 模式无法自行点 Dashboard 进行写入；DNS 的已读页面之前显示没有根域名 A/CNAME 网站记录。
+## 当前真实状态
 
-## Owner 一次性的 Cloudflare 页面操作（无需 Codex）
+| 项目 | 实际结果 |
+| --- | --- |
+| 域名注册与 Cloudflare 管理 | 已完成 |
+| Worker Production 绑定 hipostoffice.com | 已由用户控制台截图确认 |
+| 正式官网 https://hipostoffice.com/ | 用户已确认看见奶蛙邮局下载页 |
+| 云端校验：HTTPS 首页 | PASS（不是人工浏览截图） |
+| 云端校验：官网下载 Windows EXE | 完整下载、大小+SHA-256 PASS |
+| 云端校验：官网下载 Mac DMG | 完整下载、大小+SHA-256 PASS |
+| 中国大陆电信/联通/移动节点 | 未验收；不可承诺各地均能访问或测速 |
+| 已安装 Beta.4 的 Tauri 自动更新 | GitHub URL 渠道；与首页下载网络不同 |
 
-1. 打开 https://dash.cloudflare.com/dc68be889fd6e119d6a6095f20cac687/workers-and-pages ，点击 **Create application / Pages / Connect to Git**（2026 的导航名称可能略变）。
-2. 选择 GitHub `justinleo624/naiwa-v62-updates`。这是一份公开的**纯二进制和静态网页仓库**，绝非私有应用源码。
-3. 创建 Pages 项目，建议名称 `hipostoffice-web`，Production branch = `main`。
-4. 构建设置：**Framework = None**；**Root directory = `/`（默认）**；**Build command = 留空**（静态无需编译）；**Build output directory = `site`**。
-5. 首次 Deploy，确认 Pages 自动给出的 `https://hipostoffice-web.pages.dev` 实际可显示首页与 `/downloads/` 安装包。若 Pages 新版 UI 要求 Build command，填 `echo static`。
-6. 打开 Pages 项目的 **Custom domains → Set up a domain**，填写 `hipostoffice.com`。因为此域名由同一个 Cloudflare 账号管理，Cloudflare 通常会自动创建根域名 CNAME 和证书，必须等状态 Active / TLS Issued。选择绑定 www 子域名可选，但不要删除或修改邮件 `mail.hipostoffice.com` 的 SPF / DKIM 等 DNS 记录。
-7. 设置 HTTPS（Always Use HTTPS）。核对 `https://hipostoffice.com/`、`https://hipostoffice.com/style.css`、`https://hipostoffice.com/downloads/naiwa-windows-x86_64.exe`、`https://hipostoffice.com/downloads/naiwa-darwin-aarch64.dmg`。
-8. 国内验收：用中国电信、联通、移动至少各一条真实线路打开首页，点击下载并对实际下载字节计算 SHA-256；记录成功率、速度、地区、运营商。**不要只用国外节点测速代替国内访问**。若大陆移动/电信访问失败，Cloudflare 免费全球网络不保证稳定，考虑香港/海外镜像或在取得 ICP 备案后选择合规大陆 CDN。
+### 已完成的真实外部下载验收
 
-## 绝不混淆
+[GitHub Actions 工作流 40106737016](https://github.com/justinleo624/naiwa-v62-updates/actions/runs/40106737016) — **SUCCESS**。
 
-- 域名 Registrar/Cloudflare DNS 并不会自动给根域名提供网站托管。
-- Pages 自定义域名的 CNAME 应经由 Pages → Custom domains 添加，而不是手工随意添加指向 pages.dev 的 CNAME。
-- 网站静态下载 CDN 是给首次安装用户的；Tauri 自动更新仍走 `https://raw.githubusercontent.com/justinleo624/naiwa-v62-updates/main/beta/latest.json`，要真正保证大陆用户以后能自动升级，还需要测试该 **更新清单和 Release URL** 的国内访问能力，必要时在下一轮已签名构建中一起迁移更新源（不能只改旧版客户端网页）。
-- 单文件 25 MiB 以内才可直接放入 Pages；当前两安装包均约 5–7 MB，符合限额。以后大包考虑 Cloudflare R2 / 对象存储。
-- 当前官网固定发布 Beta.4。只有 Beta.5 双平台签名包、公开 Release 均完成，且本站镜像 SHA 校验成功，才前移网站的版本显示与安装链接；禁止指向尚未生成的 Beta.5 包。
+执行环境是 **GitHub 托管的海外云端运行器，不是中国大陆网络**。
+
+此任务直接通过官方 HTTPS 域名访问页面、下载两个真实安装包，再对下载文件进行 SHA-256 校验：
+
+- `https://hipostoffice.com/` — 验证奶蛙邮局、Beta.4 和两项下载安装链接
+- `https://hipostoffice.com/downloads/naiwa-windows-x86_64.exe`
+  - 4,758,108 字节；SHA-256 `b03a675183e5fe5082cb2b5919d9dfdd07138671c4b73341cca4c9dbeb431776`
+- `https://hipostoffice.com/downloads/naiwa-darwin-aarch64.dmg`
+  - 7,152,123 字节；SHA-256 `bca734dd39c7ef94b97c96f896e4b43c7b6b0987eac4cb5c29267cb1f188541e`
+- 回归验收工作流：`.github/workflows/verify-hipostoffice-live.yml`。可以手动执行，不修改站点、版本或用户数据库。
+
+官网的静态构建/下载资源仍存放在公开仓库 `site/`，经过 SHA-256 签核之后 Cloudflare Worker 发布给 `hipostoffice.com`。
+
+## 中国大陆真实线路验收（尚未完成）
+
+使用 [ITDOG 网站测速](https://www.itdog.cn/http/)：
+
+1. 在输入框测试 `https://hipostoffice.com/`，请求方法选择 GET，勾选 **中国电信、中国联通、中国移动**，执行网站测速。
+2. 查看三运营商在多个省份是否能完成 DNS 解析、TLS 握手、返回 **HTTP 200**，以及平均耗时/失败率。如果失败率高则不标记国内 GO。
+3. 再对 `https://hipostoffice.com/downloads/naiwa-windows-x86_64.exe` 测 HTTP 请求及响应状态。多节点网页测速可能会读取/下载全部文件且占用带宽，短时间内只需少量代表节点；不必对每个节点下载所有文件。
+4. 在实际中国大陆家庭宽带和手机热点各完整下载安装一次（例如校园网 + 中国移动/电信），计算完整文件 SHA-256。在线测试器检测到 200 **不等于** 下载几 MB 内容不会中断。
+5. 对 Beta.4 应用内签名自动更新使用的两条 GitHub 地址也进行独立检查：
+   - `https://raw.githubusercontent.com/justinleo624/naiwa-v62-updates/main/beta/latest.json`
+   - `https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.4/naiwa-windows-x86_64.exe`
+   
+   如果更新源在大陆线路上无法访问，未来 Beta.5 的 **签名编译前**应规划官网托管更新清单和更新归档（Mac `.app.tar.gz` + Windows `.exe` 及对应 `.sig`），使新版本的内置 updater URL 指向自有域名；仅修改官网首页不会改变已经发布客户端内部的更新服务器。
+
+**不要把 GitHub 美国运行器的成功误称为中国大陆网络验收。** Cloudflare 普通全球网络不等于中国境内网络，具体实际可用性取决于运营商、省份、DNS 和跨境路由。若失败率明显偏高，应增加网络可用的境外/香港或合规大陆镜像方案，再发布给大范围中国大陆用户。
+
+## 后续 Beta.5
+
+Beta.5 在私有应用仓库 PR #36 开发，尚未正式发布；官网暂时只展示已验签的 Beta.4。Beta.5 在 Mac/Windows 两平台正式签名并发布之前，不得让首页下载按钮指向虚假的新版文件。届时先在 `site/downloads/` 中用哈希固定新安装包并完成外部 HTTPS 下载验证，最后更新页面的显示版本和双平台下载资源。
