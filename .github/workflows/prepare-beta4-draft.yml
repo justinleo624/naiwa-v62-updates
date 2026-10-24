@@ -1,0 +1,50 @@
+name: "Prepare Beta.4 draft for signed local build artifacts"
+# One-time preparation. DOES NOT publish any binary or update latest.json.
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/prepare-beta4-draft.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: naiwa-beta4-draft-preparation
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.repository == 'justinleo624/naiwa-v62-updates' && github.ref == 'refs/heads/main' && github.actor == 'justinleo624'
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Verify existing live signed updater index remains unchanged
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api repos/justinleo624/naiwa-v62-updates/contents/beta/latest.json --jq .content | base64 -d > "$RUNNER_TEMP/latest.json"
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const v=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/latest.json','utf8'));
+          if(v.version !== '0.6.2-beta.3')throw Error('Unexpected existing updater manifest version; do not prepare Beta.4 automatically');
+          if(!v.platforms?.['windows-x86_64'] || !v.platforms?.['darwin-aarch64'])throw Error('Old index is missing a published platform');
+          console.log('Live update index safely remains Beta.3');
+          NODE
+      - name: Create private-to-collaborators draft release without modifying latest.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo=justinleo624/naiwa-v62-updates
+          tag=v0.6.2-beta.4
+          if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
+            existing="$(gh api "repos/$repo/releases/tags/$tag")"
+            test "$(jq -r '.draft' <<<"$existing")" = true || { echo 'Existing Beta.4 release is not draft. Refusing to modify it.'; exit 1; }
+            echo 'Existing Beta.4 draft retained'
+          else
+            gh release create "$tag" --repo "$repo" --target main --draft --prerelease \
+              --title "奶蛙邮局 V6.2 Beta.4 — Render 直连" \
+              --notes "候选版本，待两个本机签名构建产物和独立验签通过后公开。新安装默认连接 Render，不显示服务器地址切换入口；旧 Railway 账号不迁移。"
+            echo 'New Beta.4 draft created. Still private draft, not downloadable to friends.'
+          fi
