@@ -1,0 +1,142 @@
+name: Publish verified V6.2 Beta.3
+# Manual one-time publish of the five Owner-verified assets already in draft 419311785.
+# Never builds private source, never touches Render/Railway and never handles a signing key.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type PUBLISH_BETA3 to publish the verified installers and signed updater manifest'
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: naiwa-beta3-publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'justinleo624/naiwa-v62-updates' && github.ref == 'refs/heads/main' && github.actor == 'justinleo624' && inputs.confirmation == 'PUBLISH_BETA3'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: justinleo624/naiwa-v62-updates
+      RELEASE_ID: '419311785'
+      VERSION: 0.6.2-beta.3
+      TAG: v0.6.2-beta.3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify immutable release identity and all five known assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/releases/$RELEASE_ID" > "$RUNNER_TEMP/release.json"
+          node - <<'NODE'
+          const fs=require('fs'),assert=require('assert/strict');
+          const r=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/release.json','utf8'));
+          assert.equal(r.tag_name,'v0.6.2-beta.3');
+          assert.equal(r.name,'奶蛙邮局 V6.2 Beta.3');
+          assert.equal(r.prerelease,true);
+          const expected={
+            'naiwa-darwin-aarch64.dmg':'f60b44b9cc7e892316d95d8945b85daa674bb1526076784d63bee29e2787adb1',
+            'naiwa-darwin-aarch64.app.tar.gz':'662e89c5a4251248f50d0bbc4f8fa39c111944a25f653dc08142a3e65fbb9fa3',
+            'naiwa-darwin-aarch64.app.tar.gz.sig':'016338678457f656493957519ee0183d543dabf04ed4ac7391e2ff1cbf14799e',
+            'naiwa-windows-x86_64.exe':'6e78e372f93d463c467f3d92acd4d7a2ad3ed1b3918c5ef8fd6ed7ca3a8bae8e',
+            'naiwa-windows-x86_64.exe.sig':'2fb345ee3cd2557f3e35417f4916830f9d95b475c72888b922dc780bcf9f220c'
+          };
+          assert.equal(r.assets?.length,5,'exactly five frozen assets');
+          for(const [name,digest] of Object.entries(expected)){
+            const asset=r.assets.find(a=>a.name===name);
+            assert.ok(asset && asset.state==='uploaded' && Number.isSafeInteger(asset.id),'missing named release asset '+name);
+            assert.equal(asset.digest,'sha256:'+digest,'frozen asset digest changed: '+name);
+          }
+          const existingManifest=process.env.RUNNER_TEMP+'/preexisting-manifest.json';
+          if(fs.existsSync(existingManifest)){
+            const previous=JSON.parse(fs.readFileSync(existingManifest,'utf8'));
+            assert.equal(previous.version,'0.6.2-beta.3','refuse to roll back a later beta');
+          }
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/verified-assets.json',JSON.stringify(r.assets.map(a=>({id:a.id,name:a.name}))));
+          console.log('PASS: five exact immutable artifact SHA256 digests and release identity');
+          NODE
+      - name: Fail closed if a newer beta manifest is already published
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh api "repos/$REPO/contents/beta/latest.json" --jq .content > "$RUNNER_TEMP/current-manifest-base64" 2>/dev/null; then
+            base64 -d < "$RUNNER_TEMP/current-manifest-base64" > "$RUNNER_TEMP/preexisting-manifest.json"
+            node -e "const fs=require('fs');let m=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/preexisting-manifest.json'));if(m.version!=='0.6.2-beta.3')throw Error('Existing update manifest must not be replaced: '+m.version)"
+          fi
+      - name: Retrieve draft assets through authenticated GitHub API and verify their bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          jq -r '.[]|[.name,.id]|@tsv' "$RUNNER_TEMP/verified-assets.json" |
+          while IFS=$'\t' read -r name assetid; do
+            gh api -H 'Accept: application/octet-stream' "repos/$REPO/releases/assets/$assetid" > "artifacts/$name"
+          done
+          (
+            cd artifacts
+            sha256sum -c <<'SHA256'
+          f60b44b9cc7e892316d95d8945b85daa674bb1526076784d63bee29e2787adb1  naiwa-darwin-aarch64.dmg
+          662e89c5a4251248f50d0bbc4f8fa39c111944a25f653dc08142a3e65fbb9fa3  naiwa-darwin-aarch64.app.tar.gz
+          016338678457f656493957519ee0183d543dabf04ed4ac7391e2ff1cbf14799e  naiwa-darwin-aarch64.app.tar.gz.sig
+          6e78e372f93d463c467f3d92acd4d7a2ad3ed1b3918c5ef8fd6ed7ca3a8bae8e  naiwa-windows-x86_64.exe
+          2fb345ee3cd2557f3e35417f4916830f9d95b475c72888b922dc780bcf9f220c  naiwa-windows-x86_64.exe.sig
+          SHA256
+          )
+      - name: Build manifest from the exact signed artifacts (no placeholder signatures)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('fs');
+          const repo=process.env.REPO,version=process.env.VERSION,tag=process.env.TAG;
+          const platforms={};
+          for(const [platform,filename] of [
+            ['darwin-aarch64','naiwa-darwin-aarch64.app.tar.gz'],
+            ['windows-x86_64','naiwa-windows-x86_64.exe']
+          ]){
+            const sig=fs.readFileSync('artifacts/'+filename+'.sig','utf8').trim();
+            if(sig.length<100 || !sig.includes('untrusted comment:') || !sig.includes('trusted comment:'))
+              throw Error('Signature does not have expected minisign structure: '+platform);
+            platforms[platform]={
+              url:'https://github.com/'+repo+'/releases/download/'+tag+'/'+encodeURIComponent(filename),
+              signature:sig
+            };
+          }
+          const m={version,notes:'奶蛙邮局 V6.2 Beta.3（Render 全新内测邮局）',
+            pub_date:new Date().toISOString(),platforms};
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/latest.json',JSON.stringify(m,null,2)+'\n');
+          console.log('Manifest PASS: darwin-aarch64 and windows-x86_64 signed assets only');
+          NODE
+      - name: Make the already-verified draft available for friends
+        shell: bash
+        run: |
+          set -euo pipefail
+          draft="$(gh api "repos/$REPO/releases/$RELEASE_ID" --jq .draft)"
+          if [ "$draft" = "true" ]; then
+            gh api --method PATCH "repos/$REPO/releases/$RELEASE_ID" -F draft=false -F prerelease=true >/dev/null
+          fi
+          test "$(gh api "repos/$REPO/releases/$RELEASE_ID" --jq .draft)" = false
+          echo "Versioned prerelease published."
+      - name: Check public binary downloads before enabling update checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in naiwa-darwin-aarch64.app.tar.gz naiwa-windows-x86_64.exe; do
+            curl --fail --silent --show-error --location --head --retry 2 --max-time 40 "https://github.com/$REPO/releases/download/$TAG/$name" >/dev/null
+          done
+      - name: Publish beta/latest.json last, without overwriting future versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$(base64 -w0 "$RUNNER_TEMP/latest.json")"
+          existing_sha="$(gh api "repos/$REPO/contents/beta/latest.json" --jq .sha 2>/dev/null || true)"
+          if [ -n "$existing_sha" ]; then
+            test -f "$RUNNER_TEMP/preexisting-manifest.json" || { echo 'Unrecognized existing manifest'; exit 1; }
+            gh api --method PUT "repos/$REPO/contents/beta/latest.json"               -f message='release: verified Beta.3 signed update manifest'               -f content="$payload" -f sha="$existing_sha" -f branch=main >/dev/null
+          else
+            gh api --method PUT "repos/$REPO/contents/beta/latest.json"               -f message='release: verified Beta.3 signed update manifest'               -f content="$payload" -f branch=main >/dev/null
+          fi
+          echo "Published signed update index: https://raw.githubusercontent.com/$REPO/main/beta/latest.json"
