@@ -1,15 +1,15 @@
 {
-  "version": "0.6.2-beta.3",
-  "notes": "奶蛙邮局 V6.2 Beta.3（Render 全新内测邮局）",
-  "pub_date": "2026-10-24T11:48:59.283Z",
+  "version": "0.6.2-beta.4",
+  "notes": "奶蛙邮局 V6.2 Beta.4（Render 全新内测邮局）",
+  "pub_date": "2026-10-24T14:07:07.267Z",
   "platforms": {
     "darwin-aarch64": {
-      "url": "https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.3/naiwa-darwin-aarch64.app.tar.gz",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSZGpPRGY0MlI4dVFMSGRHK2JHZEpxM1RQVjR4YlVaUXJqTUliUVcwWGRWeVFxait5Q00rY29UVXJBVUJLTmZBK0NtRFpZRkQxb1ZJRkMwbVZ4M3Y0dXB6NlVmbHhweUFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNTY3OTMzCWZpbGU65aW26JuZ6YKu5bGAIEJldGEuYXBwLnRhci5negl2ZXJzaW9uOjAuNi4yLWJldGEuMwpZZVlaeDIwOHcwYnJxcmdlOEJLQWtzaFQ5U1JjVmdDVUIzaTRzazFpOWVwTk1qZlpaQVZWSDdkMnNSOXdFNzgwRVdaUU05QmlTb2pRZVB5aStpYm1EQT09Cg=="
+      "url": "https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.4/naiwa-darwin-aarch64.app.tar.gz",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSZGpPRGY0MlI4dWVJVHg2MlNwSXF5aGZGUTRvSW90TE5wa2ZaR2NaVTREdnpiL2VsRzZrKzBJS0dLNEhtSmhrN2ZxNGhnNVpTNlYwb09PaXprV1IwdWxmbm9oZFVEcUFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODQ4NTE2CWZpbGU65aW26JuZ6YKu5bGAIEJldGEuYXBwLnRhci5negl2ZXJzaW9uOjAuNi4yLWJldGEuNApUUEJTTXdFOWxPU3RwSHVDeWJVTE9JcXZOcytHM1FHZEZ1ZVZncjU5RHQzY1RLV3JIeDZDclRCTllVRXI2c3JZNXQ3MlJQTHFKZUVEQ2dnRnpCK3lBdz09Cg=="
     },
     "windows-x86_64": {
-      "url": "https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.3/naiwa-windows-x86_64.exe",
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSZGpPRGY0MlI4dWVnVjNZRFRhaGU2dWJNNUwrdXRRZXd4dHBsTEs2RWtxOS92R05rS0ZOQWFOZzBIVnN2cWw4OE1iZnovMC9hVGhpMHZLK1ZxRWdtN2NtZ3pDQzlMZ0E0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyNTY4Mzc4CWZpbGU65aW26JuZ6YKu5bGAIEJldGFfMC42LjItYmV0YS4zX3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjYuMi1iZXRhLjMKVkFMTGRDVk5GMnVIQklNbjh4UjlXOTdMSVlBOXFPakRoYmVUVWtKTzVUZ0dGUEJyWlR0QlloZjZ6aVBlWFZtSjh4a3NaNkNlZCt0WG1vcjRCSk5CRGc9PQo="
+      "url": "https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.4/naiwa-windows-x86_64.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSZGpPRGY0MlI4dWF2NEE0RHgwQ1hQS1c5NDRkWk1xeGlsdmRDTytKdlZ4YzNLV3dBZ0wrbE41UGg4c2ZiUTM4N001MnVwZnFnbWRBQ1lqSlE0cnVDbElhUFZ2aVh6TUFvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyODQ4OTk0CWZpbGU65aW26JuZ6YKu5bGAIEJldGFfMC42LjItYmV0YS40X3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjYuMi1iZXRhLjQKOEp3bXF6RGpuZGQvYkxJRXdDaVl4ZHZmUDNicEs1R1VmRk5pOU5GY1prQzRjdWlMc0kySkFWSTJLUWFSRUhUVFRSTEpVMjFiL1FVQjNsOEgzV2gxRFE9PQo="
     }
   }
 }
