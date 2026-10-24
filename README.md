@@ -1,5 +1,14 @@
 # 奶蛙邮局 V6.2 Beta.4 — 下载与自动更新
 
+**当前推荐：V6.2 Beta.4。**
+
+### 官网下载页（可预览）
+
+- [打开奶蛙邮局下载站预览](https://hipostoffice-download-preview.onrender.com/)
+- 网站源码与静态下载镜像位于本仓库 `site/`；Windows/Mac 安装包已通过 GitHub Actions 实际 SHA-256 校验并写入 `site/downloads/`。
+- 自有域名 `https://hipostoffice.com` 的 Cloudflare Pages DNS 绑定**尚未完成**，不可声称自有域名已上线。操作指引请见 [CLOUDFLARE_PAGES_SETUP.md](CLOUDFLARE_PAGES_SETUP.md)。
+- 国内访问通过 Pages 同域名二进制下载减少对 GitHub 的依赖，但必须经国内电信/联通/移动真实测试，不保证所有线路稳定。
+
 **当前推荐：V6.2 Beta.4。** Windows 和 macOS Apple Silicon 版本已公开，可以发给受邀朋友下载安装。软件默认连接 Render，无需设置服务器地址。
 
 ## 下载 Beta.4
