@@ -1,0 +1,68 @@
+name: Verify live hipostoffice.com downloads
+# One-time outside-China smoke test of the public Cloudflare Worker custom domain.
+# This workflow does not modify the live site, binaries, or updater index.
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/verify-hipostoffice-live.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-downloads:
+    if: github.repository == 'justinleo624/naiwa-v62-updates' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Resolve official domain and probe homepage TLS
+        shell: bash
+        run: |
+          set -euo pipefail
+          host=hipostoffice.com
+          echo 'DNS records from GitHub-hosted runner:'
+          getent ahostsv4 "$host" | head -n 5 || true
+          curl --fail --show-error --silent --location \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --connect-timeout 20 --max-time 90 --retry 2 \
+            --dump-header "$RUNNER_TEMP/site.headers" \
+            --output "$RUNNER_TEMP/index.html" \
+            "https://$host/"
+          grep -F '奶蛙邮局' "$RUNNER_TEMP/index.html" >/dev/null
+          grep -F '/downloads/naiwa-windows-x86_64.exe' "$RUNNER_TEMP/index.html" >/dev/null
+          grep -F '/downloads/naiwa-darwin-aarch64.dmg' "$RUNNER_TEMP/index.html" >/dev/null
+          grep -F 'Beta.4' "$RUNNER_TEMP/index.html" >/dev/null
+          printf 'Homepage PASS; received %s bytes over validated HTTPS\n' "$(wc -c < "$RUNNER_TEMP/index.html")"
+          grep -Ei '^HTTP/|^content-type:|^cf-cache-status:|^server:' "$RUNNER_TEMP/site.headers" || true
+      - name: Download Windows installer from own Cloudflare domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --location \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --connect-timeout 20 --max-time 180 --retry 2 \
+            --dump-header "$RUNNER_TEMP/win.headers" \
+            --output "$RUNNER_TEMP/naiwa-windows-x86_64.exe" \
+            'https://hipostoffice.com/downloads/naiwa-windows-x86_64.exe'
+          echo 'b03a675183e5fe5082cb2b5919d9dfdd07138671c4b73341cca4c9dbeb431776  '"$RUNNER_TEMP"'/naiwa-windows-x86_64.exe' | sha256sum --check --strict
+          test "$(wc -c < "$RUNNER_TEMP/naiwa-windows-x86_64.exe")" = 4758108
+          printf 'Windows download PASS, size=%s\n' "$(wc -c < "$RUNNER_TEMP/naiwa-windows-x86_64.exe")"
+          grep -Ei '^HTTP/|^content-type:|^content-length:|^content-disposition:' "$RUNNER_TEMP/win.headers" || true
+      - name: Download Mac installer from own Cloudflare domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --location \
+            --proto '=https' --proto-redir '=https' --tlsv1.2 \
+            --connect-timeout 20 --max-time 180 --retry 2 \
+            --dump-header "$RUNNER_TEMP/mac.headers" \
+            --output "$RUNNER_TEMP/naiwa-darwin-aarch64.dmg" \
+            'https://hipostoffice.com/downloads/naiwa-darwin-aarch64.dmg'
+          echo 'bca734dd39c7ef94b97c96f896e4b43c7b6b0987eac4cb5c29267cb1f188541e  '"$RUNNER_TEMP"'/naiwa-darwin-aarch64.dmg' | sha256sum --check --strict
+          test "$(wc -c < "$RUNNER_TEMP/naiwa-darwin-aarch64.dmg")" = 7152123
+          printf 'Mac download PASS, size=%s\n' "$(wc -c < "$RUNNER_TEMP/naiwa-darwin-aarch64.dmg")"
+          grep -Ei '^HTTP/|^content-type:|^content-length:|^content-disposition:' "$RUNNER_TEMP/mac.headers" || true
+      - name: Explain geographical scope
+        shell: bash
+        run: |
+          echo 'PASS: site and both exact installer bytes on Cloudflare Worker domain, from GitHub Actions hosted runner.'
+          echo 'This is NOT a Mainland China telecom/network test; perform independent China Mobile/Unicom/Telecom measurements.'
