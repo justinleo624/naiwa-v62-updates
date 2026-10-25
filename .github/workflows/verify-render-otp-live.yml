@@ -1,0 +1,64 @@
+name: Verify live Render email and PNVS SMS auth switches
+# Read-only public status plus INVALID input checks. No real OTP, SMS fees or secrets.
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/verify-render-otp-live.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: github.repository == 'justinleo624/naiwa-v62-updates'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm health, both capabilities and safe invalid-input rejection
+        shell: bash
+        env:
+          API_ORIGIN: https://naiwa-v62-beta3-api.onrender.com
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const assert=require('node:assert/strict');
+          const base=process.env.API_ORIGIN;
+          const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+          async function request(path,method='GET',body){
+            const response=await fetch(base+path,{
+              method,redirect:'error',signal:AbortSignal.timeout(14000),
+              headers:{Accept:'application/json',...(body?{'Content-Type':'application/json'}:{})},
+              ...(body?{body:JSON.stringify(body)}:{})
+            });
+            const text=await response.text();
+            let parsed={};try{parsed=JSON.parse(text)}catch{}
+            return {status:response.status,json:parsed};
+          }
+          async function main(){
+            for(let i=0;i<18;i++){
+              const health=await request('/api/health');
+              assert.equal(health.status,200,'the Render beta API must remain healthy');
+              assert.equal(health.json.ok,true);
+              assert.equal(health.json.environment,'v62-beta-staging');
+              const caps=await request('/api/capabilities');
+              assert.equal(caps.status,200);
+              if(caps.json.emailRegistration===true&&caps.json.phoneSmsRegistration===true){
+                console.log('PASS: Render live capabilities show email and PNVS SMS enabled');
+                const badEmail=await request('/api/auth/email/start','POST',{email:'not-a-valid-email'});
+                assert.equal(badEmail.status,400,'invalid email should be rejected BEFORE OTP dispatch; not a disabled 503');
+                const badPhone=await request('/api/auth/phone/start','POST',{phone:'not-a-valid-phone'});
+                assert.equal(badPhone.status,400,'invalid phone should be rejected BEFORE SMS dispatch; not a disabled 503');
+                console.log('PASS: both active OTP endpoints reject malformed recipients with HTTP 400; no message sent');
+                console.log('PASS: no secrets or real recipients were used during this test');
+                return;
+              }
+              console.log('Waiting for new Render deploy; iteration '+(i+1)+', emailEnabled='+
+                Boolean(caps.json.emailRegistration)+', phoneEnabled='+Boolean(caps.json.phoneSmsRegistration));
+              await sleep(12000);
+            }
+            throw Error('The Render public capabilities did not enable both OTP providers in the expected window');
+          }
+          main().catch(e=>{console.error(String(e.message));process.exitCode=1;});
+          NODE
