@@ -1,5 +1,6 @@
 name: Inspect live hipostoffice installer versions (read-only)
 # Reads bytes actually served by official Cloudflare domain; never publishes, modifies binaries or updates manifests.
+# Beta.5 live verification following site/downloads mirror update.
 on:
   push:
     branches: [main]
