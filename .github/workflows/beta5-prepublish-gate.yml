@@ -1,0 +1,97 @@
+name: Preflight immutable Beta.5 draft before release
+# Read-only validation with write-scope GITHUB_TOKEN solely to access owner-only draft assets.
+# This does NOT publish, update beta/latest.json, or touch site/downloads.
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/beta5-prepublish-gate.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: naiwa-beta5-prepublish-gate
+  cancel-in-progress: false
+jobs:
+  draft-gate:
+    if: github.repository == 'justinleo624/naiwa-v62-updates' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: justinleo624/naiwa-v62-updates
+      RELEASE_ID: "422781043"
+    steps:
+      - name: Check draft identity, exact SHA-256 and old updater index
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/releases/$RELEASE_ID" > "$RUNNER_TEMP/release.json"
+          gh api "repos/$REPO/contents/beta/latest.json" --jq .content | base64 -d > "$RUNNER_TEMP/previous.json"
+          node <<'NODE'
+          const fs=require('fs'),assert=require('node:assert/strict');
+          const r=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/release.json'));
+          const old=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/previous.json'));
+          assert.equal(r.tag_name,'v0.6.2-beta.5');
+          assert.equal(r.draft,true);
+          assert.equal(r.prerelease,true);
+          assert.equal(old.version,'0.6.2-beta.4');
+          assert.deepEqual(Object.keys(old.platforms).sort(),['darwin-aarch64','windows-x86_64']);
+          const expected={
+            'naiwa-windows-x86_64.exe':'56a4b5a6e06783851210fc9519b4093be4d9c9fb7954ce0f4ab9501b4388161a',
+            'naiwa-windows-x86_64.exe.sig':'68074842c8abc64abd732a890446ee8f9a2062ffc404534bbb06f1f814cc9c25',
+            'naiwa-darwin-aarch64.dmg':'213196b4ca0e26ee7fd271f7537b1aa7872ef0422916b6d761298b10effa8256',
+            'naiwa-darwin-aarch64.app.tar.gz':'bc214caceb2dd3bde3b2ba66e071b01d8c33fe131881153b3bedc2b8b137ba6e',
+            'naiwa-darwin-aarch64.app.tar.gz.sig':'af28fc182c37f4728fcf598f9ecc170e3d32d59116433abf051c45305a5af184',
+            'BUILD_RESULT_WINDOWS.md':'327ab17b83ba303335bfc45ad039f3c03e123f1ceff686c0d35e80c57be60c72',
+            'SHA256SUMS_WINDOWS.txt':'a2bb9c16edaf4e174e8715c87486a207b811f84d9c952fe2b14247c1fa5736f0'
+          };
+          assert.equal(r.assets.length,Object.keys(expected).length,'unexpected asset added or missing');
+          for(const [name,hash] of Object.entries(expected)){
+            const a=r.assets.find(v=>v.name===name);
+            assert.ok(a&&a.state==='uploaded'&&Number.isSafeInteger(a.id),'missing asset '+name);
+            assert.equal(a.digest,'sha256:'+hash,'SHA-256 mismatch '+name);
+          }
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/assets.json',JSON.stringify(r.assets.map(a=>({name:a.name,id:a.id}))));
+          console.log('PASS: expected 7 draft assets, all SHA-256 metadata pinned; existing updater index is Beta.4');
+          NODE
+      - name: Download all signed release assets while draft is private and verify bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/beta5-assets"
+          jq -r '.[] | [.name,.id] | @tsv' "$RUNNER_TEMP/assets.json" |
+            while IFS=$'\t' read -r name assetid; do
+              gh api -H 'Accept: application/octet-stream' \
+                "repos/$REPO/releases/assets/$assetid" > "$RUNNER_TEMP/beta5-assets/$name"
+            done
+          cd "$RUNNER_TEMP/beta5-assets"
+          sha256sum --check --strict <<'SHA256'
+          56a4b5a6e06783851210fc9519b4093be4d9c9fb7954ce0f4ab9501b4388161a  naiwa-windows-x86_64.exe
+          68074842c8abc64abd732a890446ee8f9a2062ffc404534bbb06f1f814cc9c25  naiwa-windows-x86_64.exe.sig
+          213196b4ca0e26ee7fd271f7537b1aa7872ef0422916b6d761298b10effa8256  naiwa-darwin-aarch64.dmg
+          bc214caceb2dd3bde3b2ba66e071b01d8c33fe131881153b3bedc2b8b137ba6e  naiwa-darwin-aarch64.app.tar.gz
+          af28fc182c37f4728fcf598f9ecc170e3d32d59116433abf051c45305a5af184  naiwa-darwin-aarch64.app.tar.gz.sig
+          SHA256
+          node <<'NODE'
+          const fs=require('fs'),assert=require('node:assert/strict');
+          const old=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/previous.json'));
+          function parseSig(data,version){
+            assert.match(data,/^[A-Za-z0-9+/=]+$/);
+            const raw=Buffer.from(data,'base64').toString('utf8');
+            const lines=raw.trim().split(/\r?\n/);
+            assert.match(lines[0],/^untrusted comment: signature from tauri secret key/);
+            assert.ok(lines.some(l=>l.startsWith('trusted comment:')));
+            assert.ok(raw.includes('version:'+version),'signed comment does not identify expected version');
+            const key=Buffer.from(lines[1],'base64');
+            assert.ok(key.length>=74,'invalid minisign signature');
+            return key.subarray(2,10).toString('hex');
+          }
+          for(const [p,file] of [['windows-x86_64','naiwa-windows-x86_64.exe'],['darwin-aarch64','naiwa-darwin-aarch64.app.tar.gz']]){
+            const next=fs.readFileSync(file+'.sig','utf8').trim();
+            const oldKey=parseSig(old.platforms[p].signature,old.version);
+            const newKey=parseSig(next,'0.6.2-beta.5');
+            assert.equal(newKey,oldKey,'Updater signing key ID changed for '+p);
+          }
+          console.log('PASS: all five signed files downloaded byte-exact; same updater signing key IDs across Beta.4 and Beta.5.');
+          console.log('This key-continuity check does NOT replace local cryptographic verification, which Owner already reported.');
+          NODE
