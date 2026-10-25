@@ -1,0 +1,164 @@
+name: Promote verified Beta.5 updater to all Beta.4 clients
+# Owner-authorized Beta.4 -> Beta.5 rollout. Release and official site are public and SHA-pinned.
+# Build nothing, never handle signing private key, never touch Render/Railway.
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/promote-beta5-signed-updater.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: naiwa-beta-signed-manifest-publish
+  cancel-in-progress: false
+jobs:
+  promote:
+    if: github.repository == 'justinleo624/naiwa-v62-updates' && github.ref == 'refs/heads/main' && github.actor == 'justinleo624'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: justinleo624/naiwa-v62-updates
+      RELEASE_ID: '422781043'
+      VERSION: 0.6.2-beta.5
+      TAG: v0.6.2-beta.5
+    steps:
+      - name: Verify published release, immutably pinned assets and current Beta.4 updater
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/releases/$RELEASE_ID" > "$RUNNER_TEMP/release.json"
+          gh api "repos/$REPO/contents/beta/latest.json" > "$RUNNER_TEMP/current.json"
+          node <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const release=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/release.json'));
+          const current=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/current.json'));
+          assert.equal(release.id,422781043);
+          assert.equal(release.tag_name,'v0.6.2-beta.5');
+          assert.equal(release.draft,false,'Beta.5 release must already be publicly published');
+          assert.equal(release.prerelease,true);
+          assert.match(current.sha,/^[0-9a-f]{40}$/);
+          const prior=JSON.parse(Buffer.from(current.content,'base64').toString('utf8'));
+          assert.equal(prior.version,'0.6.2-beta.4','refuse to overwrite unknown release version');
+          assert.deepEqual(Object.keys(prior.platforms).sort(),['darwin-aarch64','windows-x86_64']);
+          const expected={
+            'naiwa-windows-x86_64.exe':'56a4b5a6e06783851210fc9519b4093be4d9c9fb7954ce0f4ab9501b4388161a',
+            'naiwa-windows-x86_64.exe.sig':'68074842c8abc64abd732a890446ee8f9a2062ffc404534bbb06f1f814cc9c25',
+            'naiwa-darwin-aarch64.dmg':'213196b4ca0e26ee7fd271f7537b1aa7872ef0422916b6d761298b10effa8256',
+            'naiwa-darwin-aarch64.app.tar.gz':'bc214caceb2dd3bde3b2ba66e071b01d8c33fe131881153b3bedc2b8b137ba6e',
+            'naiwa-darwin-aarch64.app.tar.gz.sig':'af28fc182c37f4728fcf598f9ecc170e3d32d59116433abf051c45305a5af184',
+            'BUILD_RESULT_WINDOWS.md':'327ab17b83ba303335bfc45ad039f3c03e123f1ceff686c0d35e80c57be60c72',
+            'SHA256SUMS_WINDOWS.txt':'a2bb9c16edaf4e174e8715c87486a207b811f84d9c952fe2b14247c1fa5736f0'
+          };
+          assert.equal(release.assets.length,Object.keys(expected).length,'unexpected changed asset count');
+          for(const [name,digest] of Object.entries(expected)){
+            const a=release.assets.find(z=>z.name===name);
+            assert.ok(a&&a.state==='uploaded'&&a.digest==='sha256:'+digest,
+              'missing or modified SHA-256 asset '+name);
+          }
+          fs.writeFileSync(process.env.RUNNER_TEMP+'/old-manifest.json',JSON.stringify(prior));
+          console.log('PASS: public release and 7 exact frozen SHA-256 values; current update index exactly Beta.4');
+          NODE
+      - name: Require both real official-domain Beta.5 downloads before updater switch
+        shell: bash
+        run: |
+          set -euo pipefail
+          host='https://hipostoffice.com'
+          curl --fail --silent --show-error --location --retry 2 --max-time 80 \
+            --proto '=https' --proto-redir '=https' "$host/" -o "$RUNNER_TEMP/site.html"
+          grep -F 'Beta.5' "$RUNNER_TEMP/site.html" > /dev/null
+          curl --fail --silent --show-error --location --retry 2 --max-time 120 \
+            --proto '=https' --proto-redir '=https' "$host/downloads/naiwa-windows-x86_64.exe" \
+            -o "$RUNNER_TEMP/site-windows.exe"
+          curl --fail --silent --show-error --location --retry 2 --max-time 120 \
+            --proto '=https' --proto-redir '=https' "$host/downloads/naiwa-darwin-aarch64.dmg" \
+            -o "$RUNNER_TEMP/site-macos.dmg"
+          printf '%s  %s\n' '56a4b5a6e06783851210fc9519b4093be4d9c9fb7954ce0f4ab9501b4388161a' "$RUNNER_TEMP/site-windows.exe" | sha256sum --check --strict
+          printf '%s  %s\n' '213196b4ca0e26ee7fd271f7537b1aa7872ef0422916b6d761298b10effa8256' "$RUNNER_TEMP/site-macos.dmg" | sha256sum --check --strict
+          echo 'PASS: actual official homepage labels Beta.5 and both downloaded installers exactly match Beta.5 release.'
+      - name: Download signed Beta.5 update assets from public GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/beta5"
+          gh release download "$TAG" --repo "$REPO" --dir "$RUNNER_TEMP/beta5" --pattern 'naiwa-*'
+          cd "$RUNNER_TEMP/beta5"
+          sha256sum --check --strict <<'SHA256'
+          56a4b5a6e06783851210fc9519b4093be4d9c9fb7954ce0f4ab9501b4388161a  naiwa-windows-x86_64.exe
+          68074842c8abc64abd732a890446ee8f9a2062ffc404534bbb06f1f814cc9c25  naiwa-windows-x86_64.exe.sig
+          213196b4ca0e26ee7fd271f7537b1aa7872ef0422916b6d761298b10effa8256  naiwa-darwin-aarch64.dmg
+          bc214caceb2dd3bde3b2ba66e071b01d8c33fe131881153b3bedc2b8b137ba6e  naiwa-darwin-aarch64.app.tar.gz
+          af28fc182c37f4728fcf598f9ecc170e3d32d59116433abf051c45305a5af184  naiwa-darwin-aarch64.app.tar.gz.sig
+          SHA256
+          echo 'PASS: Windows updater EXE/SIG, Mac updater TAR/SIG and Mac installer DMG byte-exact.'
+      - name: Build signed update manifest with original key continuity, no private keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+          const dir=path.join(process.env.RUNNER_TEMP,'beta5');
+          const old=JSON.parse(fs.readFileSync(path.join(process.env.RUNNER_TEMP,'old-manifest.json'),'utf8'));
+          const repo=process.env.REPO,version=process.env.VERSION,tag=process.env.TAG;
+          assert.equal(old.version,'0.6.2-beta.4');
+          function keyIdFromSig(base64,expectedVersion){
+            assert.match(base64,/^[A-Za-z0-9+/=]+$/,'signature must be base64');
+            const data=Buffer.from(base64,'base64').toString('utf8');
+            const lines=data.trim().split(/\r?\n/);
+            assert.match(lines[0],/^untrusted comment: signature from tauri secret key/);
+            assert.ok(lines.length>=4&&lines.some(l=>l.startsWith('trusted comment:')),'missing signed metadata');
+            assert.ok(data.includes('version:'+expectedVersion),'signed version mismatch');
+            const bytes=Buffer.from(lines[1],'base64');
+            assert.ok(bytes.length>=74,'truncated minisign signature');
+            return bytes.subarray(2,10).toString('hex');
+          }
+          const platforms={};
+          for(const [platform,asset] of [
+            ['darwin-aarch64','naiwa-darwin-aarch64.app.tar.gz'],
+            ['windows-x86_64','naiwa-windows-x86_64.exe']
+          ]){
+            const sig=fs.readFileSync(path.join(dir,asset+'.sig'),'utf8').trim();
+            const oldKey=keyIdFromSig(old.platforms[platform].signature,old.version);
+            const currentKey=keyIdFromSig(sig,version);
+            assert.equal(currentKey,oldKey,'refuse updater public-key rotation for '+platform);
+            platforms[platform]={
+              url:'https://github.com/'+repo+'/releases/download/'+tag+'/'+encodeURIComponent(asset),
+              signature:sig
+            };
+          }
+          const manifest={version,notes:'奶蛙邮局 V6.2 Beta.5（邮箱 / 手机验证码登录切换）',
+            pub_date:new Date().toISOString(),platforms};
+          fs.writeFileSync(path.join(process.env.RUNNER_TEMP,'beta5-latest.json'),
+            JSON.stringify(manifest,null,2)+'\n');
+          console.log('PASS: platform update URLs public, exact signed Beta.5 version, original Beta.4 updater signing key IDs');
+          NODE
+      - name: Atomically advance beta/latest.json from Beta.4 to Beta.5
+        shell: bash
+        run: |
+          set -euo pipefail
+          # GitHub Contents API SHA acts as an optimistic concurrency guard.
+          sha="$(node -e "console.log(JSON.parse(require('fs').readFileSync(process.env.RUNNER_TEMP+'/current.json','utf8')).sha)")"
+          content="$(base64 -w0 "$RUNNER_TEMP/beta5-latest.json")"
+          gh api --method PUT "repos/$REPO/contents/beta/latest.json" \
+            -f message='release: Beta.5 original-key-signed updater for Windows and Mac' \
+            -f content="$content" -f sha="$sha" -f branch=main > "$RUNNER_TEMP/write-response.json"
+          node <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const result=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/write-response.json','utf8'));
+          assert.match(result.commit.sha,/^[0-9a-f]{40}$/);
+          console.log('PASS: signed updater index committed to main at '+result.commit.sha);
+          NODE
+      - name: Independently read newly published signed manifest from GitHub API
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/contents/beta/latest.json" --jq .content | base64 -d > "$RUNNER_TEMP/readback.json"
+          node <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const expected=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/beta5-latest.json'));
+          const served=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/readback.json'));
+          assert.deepEqual(served,expected);
+          assert.equal(served.version,'0.6.2-beta.5');
+          assert.deepEqual(Object.keys(served.platforms).sort(),['darwin-aarch64','windows-x86_64']);
+          console.log('PASS: read-back signed Beta.5 updater manifest from GitHub API, 2 platforms, no stale version');
+          NODE
