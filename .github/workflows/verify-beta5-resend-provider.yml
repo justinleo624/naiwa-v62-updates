@@ -1,0 +1,59 @@
+name: Beta.5 Resend simulated delivery QA (one safe recipient)
+# A single OTP request to Resend's documented simulation address, NOT a human inbox.
+# Real recipient login verification and phone SMS are outside this check.
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/verify-beta5-resend-provider.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  simulate-resend-delivery:
+    if: github.repository == 'justinleo624/naiwa-v62-updates'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Send exactly ONE OTP to Resend official simulated delivery address
+        shell: bash
+        env:
+          API: https://naiwa-v62-beta3-api.onrender.com
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const assert=require('node:assert/strict');
+          const base=process.env.API;
+          async function get(path) {
+            const res=await fetch(base+path,{signal:AbortSignal.timeout(20000)});
+            assert.equal(res.status,200,'public beta API health/capabilities must be available');
+            return res.json();
+          }
+          async function check(){
+            const health=await get('/api/health');
+            assert.equal(health.ok,true);
+            assert.equal(health.environment,'v62-beta-staging');
+            const caps=await get('/api/capabilities');
+            assert.equal(caps.emailRegistration,true);
+            // This is Resend's explicitly documented simulated-delivered recipient.
+            // There is no actual inbox or human recipient. Send only ONCE.
+            const res=await fetch(base+'/api/auth/email/start',{
+              method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({email:'delivered@resend.dev'}),
+              signal:AbortSignal.timeout(25000)
+            });
+            if(res.status!==200){
+              // Avoid logging response bodies, email secrets, or recipient-specific data.
+              console.error('FAIL: Resend-backed OTP start rejected; HTTP '+res.status);
+              process.exitCode=1;return;
+            }
+            const result=await res.json();
+            assert.equal(result.ok,true);
+            assert.equal(result.expiresInSeconds,600);
+            console.log('PASS: Render beta generated OTP and Resend simulated-delivery provider accepted it (HTTP 200).');
+            console.log('No real person messaged; OTP never printed or verified; phone SMS not exercised.');
+          }
+          check().catch(err=>{console.error('FAIL: '+String(err.message).slice(0,240));process.exitCode=1});
+          NODE
