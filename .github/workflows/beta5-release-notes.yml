@@ -1,0 +1,57 @@
+name: Correct Beta.5 release notes after updater rollout
+# Documentation only: no binary, manifest, website, or API change.
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/beta5-release-notes.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release-notes:
+    if: github.repository == 'justinleo624/naiwa-v62-updates' && github.ref == 'refs/heads/main' && github.actor == 'justinleo624'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: justinleo624/naiwa-v62-updates
+    steps:
+      - name: Verify Beta.5 manifest and public release before notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/contents/beta/latest.json" --jq .content | base64 -d > "$RUNNER_TEMP/manifest.json"
+          gh api "repos/$REPO/releases/422781043" > "$RUNNER_TEMP/release.json"
+          node <<'NODE'
+          const fs=require('fs'),assert=require('node:assert/strict');
+          const m=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/manifest.json','utf8'));
+          const r=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/release.json','utf8'));
+          assert.equal(m.version,'0.6.2-beta.5');
+          assert.equal(r.tag_name,'v0.6.2-beta.5');
+          assert.equal(r.draft,false);
+          assert.equal(r.prerelease,true);
+          console.log('PASS: signed Beta.5 updater and public prerelease live');
+          NODE
+      - name: Correct public Beta.5 release notes, preserve original assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/release-notes.md" <<'NOTES'
+          # 奶蛙邮局 V6.2 Beta.5
+
+          **已向 Beta.4 用户开放签名自动更新。** 在奶蛙邮局中点击「检查更新」，可检测、下载并验证 Beta.5。官网 https://hipostoffice.com/ 已同步提供 Beta.5 安装包。
+
+          - 本版新增邮箱 / 手机验证码登录方式的专门切换界面。
+          - Windows x64：naiwa-windows-x86_64.exe
+          - Mac Apple Silicon：naiwa-darwin-aarch64.dmg
+          - V6.2 内测 API：https://naiwa-v62-beta3-api.onrender.com，旧 Railway 数据不受影响。
+          - 双平台固定构建源码：dfe290c4eeca8ec2d67d85ceb26b3fde78d77bf7
+          - Tauri 更新公钥与 Beta.4 一致，归档、签名和安装包的 SHA-256 已通过云端验收。
+
+          **测试和限制：** Beta.4 上真实邮箱、短信注册及登录已经通过；Beta.5 新切换界面的实机升级后交互仍应验收。Windows 尚无系统 Authenticode 代码签名；Mac 使用 ad-hoc 系统签名、未经 Apple Developer ID 公证。Tauri 更新签名不等同于系统开发者身份签名。当前为受邀 Beta 内测版。
+
+          [自动更新发布](https://github.com/justinleo624/naiwa-v62-updates/actions/runs/40169698824) · [公网更新链路验收](https://github.com/justinleo624/naiwa-v62-updates/actions/runs/40169763514)
+          NOTES
+          gh api --method PATCH "repos/$REPO/releases/422781043" -f body="$(cat "$RUNNER_TEMP/release-notes.md")" > /dev/null
+          gh api "repos/$REPO/releases/422781043" --jq .body | grep -F '已向 Beta.4 用户开放签名自动更新' > /dev/null
+          echo 'PASS: published Beta.5 release notes now match live signed updater rollout'
