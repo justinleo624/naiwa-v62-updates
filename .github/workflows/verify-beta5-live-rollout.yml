@@ -1,0 +1,75 @@
+name: Verify live Beta.5 updater and official site
+# Read-only rollout acceptance: no release, manifest, binaries, accounts, or provider mutations.
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/verify-beta5-live-rollout.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-rollout:
+    if: github.repository == 'justinleo624/naiwa-v62-updates'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check raw.githubusercontent.com client-facing signed Beta.5 manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://raw.githubusercontent.com/justinleo624/naiwa-v62-updates/main/beta/latest.json'
+          for i in 1 2 3 4 5 6; do
+            curl --fail --silent --show-error --location --retry 2 --max-time 30 \
+              --proto '=https' --proto-redir '=https' "$url" -o "$RUNNER_TEMP/client-latest.json"
+            if node -e "process.exit(JSON.parse(require('fs').readFileSync(process.env.RUNNER_TEMP+'/client-latest.json','utf8')).version==='0.6.2-beta.5'?0:1)"; then break; fi
+            if [ "$i" = 6 ]; then echo 'Updater CDN still serves outdated manifest'; exit 1; fi
+            sleep 5
+          done
+          node <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const m=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/client-latest.json','utf8'));
+          assert.equal(m.version,'0.6.2-beta.5');
+          assert.deepEqual(Object.keys(m.platforms).sort(),['darwin-aarch64','windows-x86_64']);
+          for(const [platform,asset] of [
+            ['windows-x86_64','naiwa-windows-x86_64.exe'],
+            ['darwin-aarch64','naiwa-darwin-aarch64.app.tar.gz']
+          ]){
+            const p=m.platforms[platform];
+            assert.equal(p.url,'https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.5/'+asset);
+            assert.ok(typeof p.signature==='string'&&p.signature.length>100);
+            const decoded=Buffer.from(p.signature,'base64').toString('utf8');
+            assert.match(decoded,/untrusted comment: signature from tauri secret key/);
+            assert.ok(decoded.includes('version:0.6.2-beta.5'));
+          }
+          console.log('PASS: real GitHub raw public updater endpoint now serves Beta.5 for both signed platforms.');
+          NODE
+      - name: Fetch and verify both real signed updater archives by public client URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('node:fs'),{execFileSync}=require('node:child_process');
+          const m=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/client-latest.json','utf8'));
+          const cases=[
+            ['windows-x86_64','56a4b5a6e06783851210fc9519b4093be4d9c9fb7954ce0f4ab9501b4388161a','client-win.exe'],
+            ['darwin-aarch64','bc214caceb2dd3bde3b2ba66e071b01d8c33fe131881153b3bedc2b8b137ba6e','client-mac.app.tar.gz']
+          ];
+          for(const [p,hash,name] of cases){
+            const full=process.env.RUNNER_TEMP+'/'+name;
+            execFileSync('curl',['--fail','--silent','--show-error','--location','--retry','2','--max-time','90',
+                '--proto','=https','--proto-redir','=https',m.platforms[p].url,'-o',full],{stdio:'inherit'});
+            const actual=require('node:crypto').createHash('sha256').update(fs.readFileSync(full)).digest('hex');
+            if(actual!==hash)throw Error('Updater archive SHA256 does not match '+p);
+            console.log('PASS: signed updater archive byte-exact for '+p+' ('+fs.statSync(full).size+' bytes)');
+          }
+          NODE
+      - name: Confirm currently published official website presents Beta.5
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 2 --max-time 30 \
+            --proto '=https' --proto-redir '=https' 'https://hipostoffice.com/' \
+            -o "$RUNNER_TEMP/home.html"
+          grep -F '<strong>Beta.5</strong>' "$RUNNER_TEMP/home.html" > /dev/null
+          grep -F 'releases/download/v0.6.2-beta.5/' "$RUNNER_TEMP/home.html" > /dev/null
+          echo 'PASS: official website labels Beta.5 and backup download links target the same version.'
