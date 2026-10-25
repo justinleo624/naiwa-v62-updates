@@ -38,12 +38,25 @@ jobs:
           }
           async function main(){
             for(let i=0;i<18;i++){
-              const health=await request('/api/health');
-              assert.equal(health.status,200,'the Render beta API must remain healthy');
-              assert.equal(health.json.ok,true);
-              assert.equal(health.json.environment,'v62-beta-staging');
-              const caps=await request('/api/capabilities');
-              assert.equal(caps.status,200);
+              let health,caps;
+              try {
+                health=await request('/api/health');
+                if(health.status!==200 || health.json.ok!==true || health.json.environment!=='v62-beta-staging'){
+                  console.log('Render health not ready: HTTP '+health.status+'; attempt '+(i+1));
+                  await sleep(12000);
+                  continue;
+                }
+                caps=await request('/api/capabilities');
+                if(caps.status!==200){
+                  console.log('Render capabilities not ready: HTTP '+caps.status+'; attempt '+(i+1));
+                  await sleep(12000);
+                  continue;
+                }
+              }catch(err){
+                console.log('Transient Render connectivity error on attempt '+(i+1)+': '+String(err.message).slice(0,130));
+                await sleep(12000);
+                continue;
+              }
               if(caps.json.emailRegistration===true&&caps.json.phoneSmsRegistration===true){
                 console.log('PASS: Render live capabilities show email and PNVS SMS enabled');
                 const badEmail=await request('/api/auth/email/start','POST',{email:'not-a-valid-email'});
