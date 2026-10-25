@@ -19,13 +19,19 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/beta5-audit"
-          gh release download v0.6.2-beta.5 \
-            --repo justinleo624/naiwa-v62-updates \
-            --dir "$RUNNER_TEMP/beta5-audit" \
-            --pattern "naiwa-windows-x86_64.exe" \
-            --pattern "naiwa-windows-x86_64.exe.sig" \
-            --pattern "BUILD_RESULT_WINDOWS.md" \
-            --pattern "SHA256SUMS_WINDOWS.txt"
+          root="https://api.github.com/repos/justinleo624/naiwa-v62-updates/releases/assets"
+          for pair in \
+            "674086800:naiwa-windows-x86_64.exe" \
+            "674086801:naiwa-windows-x86_64.exe.sig" \
+            "674086803:BUILD_RESULT_WINDOWS.md" \
+            "674086804:SHA256SUMS_WINDOWS.txt"; do
+            id="${pair%%:*}"; name="${pair#*:}"
+            curl --fail --location --silent --show-error --retry 2 --max-time 90 \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/octet-stream" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$root/$id" --output "$RUNNER_TEMP/beta5-audit/$name"
+          done
           test -s "$RUNNER_TEMP/beta5-audit/naiwa-windows-x86_64.exe"
           test -s "$RUNNER_TEMP/beta5-audit/naiwa-windows-x86_64.exe.sig"
           test -s "$RUNNER_TEMP/beta5-audit/BUILD_RESULT_WINDOWS.md"
