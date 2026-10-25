@@ -1,0 +1,70 @@
+name: Inspect live hipostoffice installer versions (read-only)
+# Reads bytes actually served by official Cloudflare domain; never publishes, modifies binaries or updates manifests.
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/inspect-live-site-installers.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    if: github.repository == 'justinleo624/naiwa-v62-updates'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Download official site HTML and both real installers over HTTPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          host='https://hipostoffice.com'
+          curl --fail --silent --show-error --location --retry 2 --connect-timeout 15 --max-time 90 \
+            --proto '=https' --proto-redir '=https' "$host/" -o "$RUNNER_TEMP/home.html"
+          for pair in "win:naiwa-windows-x86_64.exe" "mac:naiwa-darwin-aarch64.dmg"; do
+            kind="${pair%%:*}"; name="${pair#*:}"
+            curl --fail --silent --show-error --location --retry 2 --connect-timeout 15 --max-time 130 \
+              --proto '=https' --proto-redir '=https' \
+              "$host/downloads/$name" -o "$RUNNER_TEMP/$kind.bin"
+            test -s "$RUNNER_TEMP/$kind.bin"
+          done
+          echo 'OFFICIAL_SITE_HTTPS_DOWNLOADS: succeeded'
+      - name: Print exact hashes and classify against immutable Beta.4 / Beta.5 assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          win="$(sha256sum win.bin | cut -d' ' -f1)"
+          mac="$(sha256sum mac.bin | cut -d' ' -f1)"
+          echo "WIN_SHA256=$win"
+          echo "MAC_SHA256=$mac"
+          echo "WIN_BYTES=$(wc -c < win.bin)"
+          echo "MAC_BYTES=$(wc -c < mac.bin)"
+          case "$win" in
+            b03a675183e5fe5082cb2b5919d9dfdd07138671c4b73341cca4c9dbeb431776) winversion=Beta.4;;
+            56a4b5a6e06783851210fc9519b4093be4d9c9fb7954ce0f4ab9501b4388161a) winversion=Beta.5;;
+            *) winversion=UNKNOWN;;
+          esac
+          case "$mac" in
+            bca734dd39c7ef94b97c96f896e4b43c7b6b0987eac4cb5c29267cb1f188541e) macversion=Beta.4;;
+            213196b4ca0e26ee7fd271f7537b1aa7872ef0422916b6d761298b10effa8256) macversion=Beta.5;;
+            *) macversion=UNKNOWN;;
+          esac
+          if grep -F 'Beta.5' home.html >/dev/null; then pageversion=Beta.5;
+          elif grep -F 'Beta.4' home.html >/dev/null; then pageversion=Beta.4;
+          else pageversion=UNKNOWN; fi
+          echo "LIVE_HOMEPAGE_VERSION=$pageversion"
+          echo "LIVE_WINDOWS_INSTALLER_VERSION=$winversion"
+          echo "LIVE_MAC_INSTALLER_VERSION=$macversion"
+          if [[ "$winversion" == UNKNOWN || "$macversion" == UNKNOWN ]]; then
+            echo 'WARNING: unknown live installer hashes; investigate before public release'
+            exit 1
+          fi
+          if [[ "$winversion" != "$macversion" ]]; then
+            echo 'WARNING: mixed Windows/Mac versions on website'
+            exit 1
+          fi
+          if [[ "$pageversion" != "$winversion" ]]; then
+            echo 'WARNING: homepage label does not match actual installers'
+            exit 1
+          fi
+          echo 'PASS: homepage and both installer bytes match the SAME known release'
