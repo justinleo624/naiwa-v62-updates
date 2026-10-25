@@ -1,5 +1,6 @@
 name: Stage verified Beta.5 prerelease (NO updater rollout)
 # Publicly exposes already-signed beta installers for opt-in real-client QA.
+# Reviewed source commit: dfe290c4eeca8ec2d67d85ceb26b3fde78d77bf7.
 # DO NOT modify beta/latest.json, site binaries, or Render/Railway here.
 on:
   push:
