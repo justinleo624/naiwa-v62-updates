@@ -1,0 +1,15 @@
+{
+  "version": "0.6.2-beta.5",
+  "notes": "奶蛙邮局 V6.2 Beta.5（邮箱 / 手机验证码登录切换）",
+  "pub_date": "2026-10-25T06:36:43.815Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "url": "https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.5/naiwa-darwin-aarch64.app.tar.gz",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSZGpPRGY0MlI4dVJyeTRwYTk2U3VJSEVZRE1aSXhUVStnMTVXbVVGMHhMMmlGTlJPUWwxWThPUXdHcloyaEFpK1kvd0pJVm90VjB6ZERvL28wWUJCMXQ5VzRMYkFnWkFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTA3MDUzCWZpbGU65aW26JuZ6YKu5bGAIEJldGEuYXBwLnRhci5negl2ZXJzaW9uOjAuNi4yLWJldGEuNQpOU0lhMGZlWFhqQ2NiYm9NczhMQjlVRkZtLzJyL0M1WExHK2hOUGdIdlBkUy9PNXNPa21jMy9KMUIraWtJVUZyaGF3alhpQXBONnJ2M0ZERTVnVmFCQT09Cg=="
+    },
+    "windows-x86_64": {
+      "url": "https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.5/naiwa-windows-x86_64.exe",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSZGpPRGY0MlI4dVRTZ0Q3cUNHNFlPQ3RvQ2ZaMktnTjIxeWlVakhUeS96dWJsQXhyK0M3THI1ZTJtekNCTFV4eWpJVDdQbkllRGowcVhtcjFGSW83c3lrbHh0YVhXRkFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyOTAyNTI5CWZpbGU65aW26JuZ6YKu5bGAIEJldGFfMC42LjItYmV0YS41X3g2NC1zZXR1cC5leGUJdmVyc2lvbjowLjYuMi1iZXRhLjUKWldCRHBxVWJvOEhJVVFMeGdVZEVHZTVIMndrUU5HNFcvUVZ0VnNNUzZ4Rk0xMTcvOFlMN2JvMUlqOXp0dm9uTkN6OW9tWDZCOTVEZG5MR21OUm5aQlE9PQo="
+    }
+  }
+}
