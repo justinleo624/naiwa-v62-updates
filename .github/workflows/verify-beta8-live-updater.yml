@@ -1,0 +1,85 @@
+# Public customer-path smoke test for Beta.8 signed auto updates.
+# Read-only: never installs apps, changes manifest, handles private keys, or writes production data.
+name: Verify Beta.8 public auto-updater delivery (READ ONLY)
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/verify-beta8-live-updater.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-update:
+    name: Public latest.json, original signing ID and both download assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Download actual end-user manifest from raw.githubusercontent.com
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://raw.githubusercontent.com/justinleo624/naiwa-v62-updates/main/beta/latest.json'
+          for attempt in 1 2 3 4 5 6; do
+            curl --fail --silent --show-error --location --retry 2 --max-time 40 \
+              --proto '=https' --proto-redir '=https' "$URL" -o "$RUNNER_TEMP/public-manifest.json"
+            if node -e "const m=require(process.env.RUNNER_TEMP+'/public-manifest.json');process.exit(m.version==='0.6.2-beta.8'?0:1)"; then break; fi
+            if test "$attempt" = 6; then echo 'Public manifest is still stale'; exit 1; fi
+            sleep 5
+          done
+      - name: Confirm both versioned URLs, no Intel Mac, key ID and signed versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const m=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+'/public-manifest.json','utf8'));
+          assert.equal(m.version,'0.6.2-beta.8');
+          assert.deepEqual(Object.keys(m.platforms).sort(),['darwin-aarch64','windows-x86_64']);
+          const assets={
+            'darwin-aarch64':'naiwa-darwin-aarch64.app.tar.gz',
+            'windows-x86_64':'naiwa-windows-x86_64.exe'
+          };
+          for(const [platform,asset] of Object.entries(assets)){
+            const data=m.platforms[platform];
+            assert.equal(data.url,'https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.8/'+asset);
+            const txt=Buffer.from(data.signature,'base64').toString('utf8');
+            const lines=txt.trim().split(/\r?\n/);
+            assert.match(lines[0],/^untrusted comment: signature from tauri secret key/);
+            assert.ok(lines.some(line=>line.startsWith('trusted comment:') && line.includes('version:0.6.2-beta.8')));
+            const bytes=Buffer.from(lines[1],'base64');
+            assert.equal(bytes.subarray(2,10).toString('hex'),'5d8ce0dfe3647cb9');
+          }
+          console.log('PASS: public Beta.8 manifest has the original signing key for exactly Windows x64 / macOS ARM64');
+          NODE
+      - name: Real public download of signed Mac and Windows updater archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT='https://github.com/justinleo624/naiwa-v62-updates/releases/download/v0.6.2-beta.8'
+          for name in naiwa-darwin-aarch64.app.tar.gz naiwa-darwin-aarch64.app.tar.gz.sig naiwa-windows-x86_64.exe naiwa-windows-x86_64.exe.sig; do
+            curl --fail --silent --show-error --location --retry 2 --max-time 140 \
+              --proto '=https' --proto-redir '=https' "$ROOT/$name" -o "$RUNNER_TEMP/$name"
+          done
+          cd "$RUNNER_TEMP"
+          sha256sum --check --strict <<'DIGESTS'
+          4438adc505343abeedba83f1f31787d7197767479679c11301dfdb9edfa61da6  naiwa-darwin-aarch64.app.tar.gz
+          bac64ef482bcdf3f74228f4684547e521d8badb2f5fb5ebf21060d8711d0de59  naiwa-darwin-aarch64.app.tar.gz.sig
+          6a64fe1e866fe283a1aff68b76cefde4bc63b0210458f1797cd6417d48ed2bb8  naiwa-windows-x86_64.exe
+          d98e9d7573994ec2b48499498b798ada39546366fb3b0897736164899e2e1dbc  naiwa-windows-x86_64.exe.sig
+          DIGESTS
+      - name: Ensure manifest signature bytes equal the distributed .sig files
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+          const base=process.env.RUNNER_TEMP;
+          const m=JSON.parse(fs.readFileSync(path.join(base,'public-manifest.json'),'utf8'));
+          for(const [platform,file] of Object.entries({
+            'darwin-aarch64':'naiwa-darwin-aarch64.app.tar.gz.sig',
+            'windows-x86_64':'naiwa-windows-x86_64.exe.sig'
+          })){
+            assert.equal(m.platforms[platform].signature,fs.readFileSync(path.join(base,file),'utf8').trim());
+          }
+          console.log('PASS: exact signed manifest bytes and public files match for both platforms');
+          NODE
